@@ -289,20 +289,34 @@ class DARTsortSorter(BaseSorter):
         
         # DARTsortを実行
         try:
-            if cfg is not None:
-                result = dartsort.DARTsort(
-                    recording=recording,
-                    output_dir=output_folder,
-                    cfg=cfg,
-                    overwrite=True
-                )
-            else:
-                result = dartsort.DARTsort(
-                    recording=recording,
-                    output_dir=output_folder,
-                    overwrite=True
-                )
-            
+            try:
+                if cfg is not None:
+                    result = dartsort.dartsort(
+                        recording=recording,
+                        output_dir=output_folder,
+                        cfg=cfg,
+                        overwrite=True
+                    )
+                else:
+                    result = dartsort.dartsort(
+                        recording=recording,
+                        output_dir=output_folder,
+                        overwrite=True
+                    )
+            except Exception as e:
+                if cfg is not None:
+                    result = DARTsort.dartsort(
+                        recording=recording,
+                        output_dir=output_folder,
+                        cfg=cfg,
+                        overwrite=True
+                    )
+                else:
+                    result = DARTsort.dartsort(
+                        recording=recording,
+                        output_dir=output_folder,
+                        overwrite=True
+                    )
             if verbose:
                 print(f"DARTsort completed successfully.")
                 
