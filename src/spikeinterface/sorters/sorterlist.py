@@ -20,7 +20,7 @@ from .external.waveclus import WaveClusSorter
 from .external.waveclus_snippets import WaveClusSnippetsSorter
 from .external.yass import YassSorter
 # additional
-from .external.dartsort import DARTsortSorter
+from .external.DARTsort import DARTsortSorter
 # based on spikeinertface.sortingcomponents
 from .internal.spyking_circus2 import Spykingcircus2Sorter
 from .internal.tridesclous2 import Tridesclous2Sorter

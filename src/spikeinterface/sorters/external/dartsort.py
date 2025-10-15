@@ -8,21 +8,21 @@ import numpy as np
 # from typing import override
 
 try:
-    import dartsort
-    HAVE_DARTSORT = True
+    import DARTsort
+    HAVE_DARTsort = True
 except ImportError:
-    HAVE_DARTSORT = False
+    HAVE_DARTsort = False
 
 class DARTsortSorter(BaseSorter):
     """DARTsort Sorter object."""
 
-    sorter_name = "dartsort"
+    sorter_name = "DARTsort"
     requires_locations = True
     gpu_capability = "nvidia-required"
     requires_binary_data = True
 
     installation_mesg = """
-        To use dartsort, please install dartsort from https://github.com/cwindolf/dartsort
+        To use DARTsort, please install DARTsort from https://github.com/cwindolf/DARTsort
     """
 
     @classmethod
@@ -31,11 +31,11 @@ class DARTsortSorter(BaseSorter):
             try:
                 # DeveloperConfigを優先（UserConfig + Developer専用パラメータを全て含む）
                 try:
-                    from dartsort.config import DeveloperConfig
+                    from DARTsort.config import DeveloperConfig
                     default_config = DeveloperConfig()
                 except (ImportError, AttributeError):
                     # フォールバック: DARTsortUserConfig
-                    from dartsort.config import DARTsortUserConfig
+                    from DARTsort.config import DARTsortUserConfig
                     default_config = DARTsortUserConfig()
                 
                 # pydantic dataclassのフィールド情報から動的に全パラメータを取得
@@ -75,29 +75,29 @@ class DARTsortSorter(BaseSorter):
 
     @classmethod
     def get_sorter_version(cls):
-        """Get dartsort version."""
+        """Get DARTsort version."""
         try:
-            return dartsort.__version__
+            return DARTsort.__version__
         except:
             return "Unknown"
     
     @classmethod
     def get_sorter_name(cls):
-        """Get dartsort name."""
-        return "dartsort"
+        """Get DARTsort name."""
+        return "DARTsort"
 
     @classmethod
     def is_installed(cls):
-        """Check if dartsort is installed."""
+        """Check if DARTsort is installed."""
         try:
-            import dartsort
+            import DARTsort
             return True
         except ImportError:
             return False
 
     @classmethod
     def _setup_recording(cls, recording, sorter_output_folder, params, verbose):
-        """Setup recording for dartsort."""
+        """Setup recording for DARTsort."""
         # レコーディングをバイナリファイルとして保存
         binary_file_path = sorter_output_folder / "recording.dat"
         from spikeinterface.core import write_binary_recording
@@ -143,14 +143,14 @@ class DARTsortSorter(BaseSorter):
 
     @classmethod
     def _run_from_folder(cls, output_folder, sorter_params, verbose):
-        """Run dartsort from folder."""
+        """Run DARTsort from folder."""
         dat_file_path = os.path.join(output_folder, 'recording.dat')
         
         # レコーディング情報を読み込み
         recording_info_file = os.path.join(output_folder, 'recording_info.json')
         
         try:
-            import dartsort
+            import DARTsort
             from spikeinterface.extractors import BinaryRecordingExtractor
         except ImportError:
             raise ImportError("DARTsort package is not installed. Please install it from GitHub.")
@@ -191,11 +191,11 @@ class DARTsortSorter(BaseSorter):
         
         # DARTsortの設定を作成
         try:
-            from dartsort.config import DARTsortUserConfig
+            from DARTsort.config import DARTsortUserConfig
             
             # DeveloperConfigが利用可能かチェック
             try:
-                from dartsort.config import DeveloperConfig
+                from DARTsort.config import DeveloperConfig
                 has_developer_config = True
             except (ImportError, AttributeError):
                 has_developer_config = False
@@ -263,14 +263,14 @@ class DARTsortSorter(BaseSorter):
         # DARTsortを実行
         try:
             if cfg is not None:
-                result = dartsort.dartsort(
+                result = DARTsort.DARTsort(
                     recording=recording,
                     output_dir=output_folder,
                     cfg=cfg,
                     overwrite=True
                 )
             else:
-                result = dartsort.dartsort(
+                result = DARTsort.DARTsort(
                     recording=recording,
                     output_dir=output_folder,
                     overwrite=True
@@ -287,10 +287,10 @@ class DARTsortSorter(BaseSorter):
         """Get result from folder."""
         print(f"Getting result from folder: {output_folder}")
         try:
-            from dartsort.util.data_util import DARTsortSorting
+            from DARTsort.util.data_util import DARTsortSorting
             
-            # dartsort_sorting.npzファイルから読み込み
-            sorting_npz_path = os.path.join(output_folder, 'dartsort_sorting.npz')
+            # DARTsort_sorting.npzファイルから読み込み
+            sorting_npz_path = os.path.join(output_folder, 'DARTsort_sorting.npz')
             if os.path.exists(sorting_npz_path):
                 sorting = DARTsortSorting.load(sorting_npz_path)
                 return sorting.to_numpy_sorting()
@@ -302,7 +302,7 @@ class DARTsortSorter(BaseSorter):
                     sorting = DARTsortSorting.from_peeling_hdf5(h5_path)
                     return sorting.to_numpy_sorting()
                 else:
-                    raise FileNotFoundError("No dartsort output files found")
+                    raise FileNotFoundError("No DARTsort output files found")
             
         except ImportError:
             # DARTsortSortingが利用できない場合はフォールバック
