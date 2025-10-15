@@ -11,7 +11,11 @@ try:
     import dartsort
     HAVE_DARTsort = True
 except ImportError:
-    HAVE_DARTsort = False
+    try:
+        import DARTsort as dartsort
+        HAVE_DARTsort = True
+    except ImportError:
+        HAVE_DARTsort = False
 
 class DARTsortSorter(BaseSorter):
     """DARTsort Sorter object."""
@@ -34,9 +38,17 @@ class DARTsortSorter(BaseSorter):
                     from dartsort.config import DeveloperConfig
                     default_config = DeveloperConfig()
                 except (ImportError, AttributeError):
-                    # フォールバック: DARTsortUserConfig
-                    from dartsort.config import DARTsortUserConfig
-                    default_config = DARTsortUserConfig()
+                    try:
+                        from DARTsort.config import DeveloperConfig
+                        default_config = DeveloperConfig()
+                    except (ImportError, AttributeError):
+                        # フォールバック: DARTsortUserConfig
+                        try:
+                            from dartsort.config import DARTsortUserConfig
+                            default_config = DARTsortUserConfig()
+                        except ImportError:
+                            from DARTsort.config import DARTsortUserConfig
+                            default_config = DARTsortUserConfig()
                 
                 # pydantic dataclassのフィールド情報から動的に全パラメータを取得
                 default_params = {}
@@ -93,7 +105,11 @@ class DARTsortSorter(BaseSorter):
             import dartsort
             return True
         except ImportError:
-            return False
+            try:
+                import DARTsort
+                return True
+            except ImportError:
+                return False
 
     @classmethod
     def _setup_recording(cls, recording, sorter_output_folder, params, verbose):
@@ -151,9 +167,13 @@ class DARTsortSorter(BaseSorter):
         
         try:
             import dartsort
-            from spikeinterface.extractors import BinaryRecordingExtractor
         except ImportError:
-            raise ImportError("dartsort package is not installed. Please install it from GitHub.")
+            try:
+                import DARTsort as dartsort
+            except ImportError:
+                raise ImportError("dartsort package is not installed. Please install it from GitHub.")
+        
+        from spikeinterface.extractors import BinaryRecordingExtractor
         
         dat_file_path = os.path.join(output_folder, 'recording.dat')
         
@@ -191,14 +211,21 @@ class DARTsortSorter(BaseSorter):
         
         # DARTsortの設定を作成
         try:
-            from dartsort.config import DARTsortUserConfig
+            try:
+                from dartsort.config import DARTsortUserConfig
+            except ImportError:
+                from DARTsort.config import DARTsortUserConfig
             
             # DeveloperConfigが利用可能かチェック
             try:
                 from dartsort.config import DeveloperConfig
                 has_developer_config = True
             except (ImportError, AttributeError):
-                has_developer_config = False
+                try:
+                    from DARTsort.config import DeveloperConfig
+                    has_developer_config = True
+                except (ImportError, AttributeError):
+                    has_developer_config = False
             
             # 両方の設定クラスの有効なフィールドを取得
             user_fields = set()
@@ -287,7 +314,10 @@ class DARTsortSorter(BaseSorter):
         """Get result from folder."""
         print(f"Getting result from folder: {output_folder}")
         try:
-            from dartsort.util.data_util import DARTsortSorting
+            try:
+                from dartsort.util.data_util import DARTsortSorting
+            except ImportError:
+                from DARTsort.util.data_util import DARTsortSorting
             
             # DARTsort_sorting.npzファイルから読み込み
             sorting_npz_path = os.path.join(output_folder, 'DARTsort_sorting.npz')
