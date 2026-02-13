@@ -28,6 +28,18 @@ class DARTsortSorter(BaseSorter):
     _default_params = {}
     _params_description = {}
 
+    # 動的読み込み失敗時用（h5py 未導入など）。dartsort の有効なパラメータ名を列挙し set_params_to_folder の検証を通す
+    _si_default_params = {
+        "gmm_max_spikes": 1024000,
+        "core_radius": 10,
+        "pool_engine": "process",
+        "n_jobs": 1,
+        "chunk_duration": "1s",
+        "progress_bar": True,
+        "mp_context": None,
+        "max_threads_per_worker": 1,
+    }
+
     installation_mesg = """
         To use DARTsort, please install DARTsort from https://github.com/cwindolf/dartsort
     """
@@ -42,51 +54,46 @@ class DARTsortSorter(BaseSorter):
                     default_config = DeveloperConfig()
                 except (ImportError, AttributeError):
                     try:
-                        from DARTsort.config import DeveloperConfig
-                        default_config = DeveloperConfig()
-                    except (ImportError, AttributeError):
-                        # フォールバック: DARTsortUserConfig
-                        try:
-                            from dartsort.config import DARTsortUserConfig
-                            default_config = DARTsortUserConfig()
-                        except ImportError:
-                            from DARTsort.config import DARTsortUserConfig
-                            default_config = DARTsortUserConfig()
+                        from dartsort.config import DARTsortUserConfig
+                        default_config = DARTsortUserConfig()
+                    except ImportError:
+                        raise
                 
                 # pydantic dataclassのフィールド情報から動的に全パラメータを取得
                 default_params = {}
                 params_description = {}
                 
-                # __dataclass_fields__から全フィールドを取得
-                # DeveloperConfigの場合、親クラス（UserConfig）のフィールドも自動的に含まれる
+                # __dataclass_fields__ または model_fields (Pydantic v2) から取得
                 if hasattr(default_config, '__dataclass_fields__'):
-                    for field_name, field_info in default_config.__dataclass_fields__.items():
-                        # デフォルト値を取得
-                        default_value = getattr(default_config, field_name)
-                        default_params[field_name] = default_value
-                        
-                        # ドキュメント文字列を取得
-                        doc = ""
-                        # metadata内のdocフィールドをチェック
-                        if hasattr(field_info, 'metadata') and 'doc' in field_info.metadata:
-                            doc = field_info.metadata['doc']
-                        # default内のドキュメントをチェック
-                        elif hasattr(field_info, 'default'):
-                            if hasattr(field_info.default, '__doc__') and field_info.default.__doc__:
-                                doc = field_info.default.__doc__
-                            # pydantic Fieldのdescriptionをチェック
-                            elif hasattr(field_info.default, 'description') and field_info.default.description:
-                                doc = field_info.default.description
-                        params_description[field_name] = doc
-                
+                    fields_src = default_config.__dataclass_fields__
+                elif hasattr(default_config, 'model_fields'):
+                    fields_src = default_config.model_fields
+                else:
+                    fields_src = {}
+                for field_name in (fields_src.keys() if hasattr(fields_src, 'keys') else []):
+                    field_info = fields_src[field_name]
+                    default_params[field_name] = getattr(default_config, field_name, None)
+                    doc = ""
+                    if hasattr(field_info, 'metadata') and isinstance(getattr(field_info, 'metadata', None), dict) and 'doc' in field_info.metadata:
+                        doc = field_info.metadata.get('doc', '')
+                    elif hasattr(field_info, 'default'):
+                        if hasattr(field_info.default, '__doc__') and field_info.default.__doc__:
+                            doc = field_info.default.__doc__ or ""
+                        elif hasattr(field_info.default, 'description') and field_info.default.description:
+                            doc = getattr(field_info.default, 'description', '') or ''
+                    params_description[field_name] = doc
+                default_params.update(cls._si_default_params)
                 return default_params, params_description
             except Exception as e:
-                # エラーが発生した場合はデフォルト値を返す
+                # パッケージメタデータのエラー（gitからインストールした場合など）は無視
+                # dartsort/__init__.pyで__version__ = importlib.metadata.version("dartsort")が実行されるため
                 import warnings
-                warnings.warn(f"Could not load DARTsort config dynamically: {e}")
-                return cls._default_params, cls._params_description
+                error_msg = str(e)
+                if "package metadata" not in error_msg.lower() and "No package metadata" not in error_msg:
+                    warnings.warn(f"Could not load DARTsort config dynamically: {e}")
+                return cls._si_default_params.copy(), cls._params_description
         else:
-            return cls._default_params, cls._params_description
+            return cls._si_default_params.copy(), cls._params_description
 
     @classmethod
     def get_sorter_version(cls):
@@ -240,10 +247,7 @@ class DARTsortSorter(BaseSorter):
                     "Please install it with: pip install dredge "
                     "or install all DARTsort dependencies with: pip install -r requirements-full.txt"
                 ) from e
-            try:
-                import DARTsort as dartsort
-            except ImportError:
-                raise ImportError(
+            raise ImportError(
                     f"dartsort package is not installed or has missing dependencies. "
                     f"Original error: {error_msg}. "
                     f"Please install DARTsort from https://github.com/cwindolf/dartsort"
@@ -288,21 +292,12 @@ class DARTsortSorter(BaseSorter):
         
         # DARTsortの設定を作成
         try:
-            try:
-                from dartsort.config import DARTsortUserConfig
-            except ImportError:
-                from DARTsort.config import DARTsortUserConfig
-            
-            # DeveloperConfigが利用可能かチェック
+            from dartsort.config import DARTsortUserConfig
             try:
                 from dartsort.config import DeveloperConfig
                 has_developer_config = True
             except (ImportError, AttributeError):
-                try:
-                    from DARTsort.config import DeveloperConfig
-                    has_developer_config = True
-                except (ImportError, AttributeError):
-                    has_developer_config = False
+                has_developer_config = False
             
             # 両方の設定クラスの有効なフィールドを取得
             user_fields = set()
@@ -381,24 +376,7 @@ class DARTsortSorter(BaseSorter):
                         overwrite=True
                     )
             except Exception as e:
-                # Fallback: try with DARTsort module name
-                try:
-                    import DARTsort
-                    if cfg is not None:
-                        result = DARTsort.dartsort(
-                            recording=recording,
-                            output_dir=sorter_output_folder,
-                            cfg=cfg,
-                            overwrite=True
-                        )
-                    else:
-                        result = DARTsort.dartsort(
-                            recording=recording,
-                            output_dir=sorter_output_folder,
-                            overwrite=True
-                        )
-                except ImportError:
-                    raise RuntimeError(f"DARTsort execution failed: {e}")
+                raise RuntimeError(f"DARTsort execution failed: {e}")
             if verbose:
                 print(f"DARTsort completed successfully.")
                 
@@ -419,13 +397,7 @@ class DARTsortSorter(BaseSorter):
             raise FileNotFoundError(f"Output folder not found: {sorter_output_folder}")
         
         try:
-            try:
-                from dartsort.util.data_util import DARTsortSorting
-            except ImportError:
-                try:
-                    from DARTsort.util.data_util import DARTsortSorting
-                except ImportError:
-                    raise ImportError("Could not import DARTsortSorting from dartsort.util.data_util")
+            from dartsort.util.data_util import DARTsortSorting
             
             # DARTsort_sorting.npzファイルから読み込み
             sorting_npz_path = os.path.join(sorter_output_folder, 'DARTsort_sorting.npz')
